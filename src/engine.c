@@ -67,6 +67,7 @@ int main() {
     raylib->get_random_value = GetRandomValue;
     raylib->text_format = TextFormat;
     raylib->text_to_lower = TextToLower;
+    raylib->text_copy = TextCopy;
     raylib->is_key_pressed = IsKeyPressed;
     raylib->is_mouse_button_pressed = IsMouseButtonPressed;
     raylib->is_mouse_button_down = IsMouseButtonDown;

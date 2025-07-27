@@ -4,6 +4,28 @@
 #include <stdint.h>
 #include "../raylib/include/raylib.h"
 
+#ifdef DEBUG
+    #include <stdio.h>
+    #include <stdlib.h>
+    __attribute__((unused))
+    static void are_you_a_horrible_person(bool condition, char *condition_string, char *file_name, int line_number) {
+        if (!(condition)) {
+            printf("You are a horrible person\n");
+            printf(" -> ");
+            printf("%s", file_name);
+            printf(":");
+            printf("%i\n", line_number);
+            printf(" -> (");
+            printf("%s", condition_string);
+            printf(")\n");
+            exit(1);
+        }
+    }
+    #define ASSERT(condition) do { are_you_a_horrible_person(condition, #condition, __FILE__, __LINE__); } while (0)
+#else
+    #define ASSERT(condition)
+#endif
+
 typedef uint8_t uint8;
 typedef uint32_t uint32;
 typedef uint64_t uint64;
@@ -17,6 +39,7 @@ typedef struct Raylib {
     int (*get_random_value)(int min, int max);
     const char *(*text_format)(const char *text, ...);
     const char *(*text_to_lower)(const char *text);
+    int (*text_copy)(char *dst, const char *src);
 
     bool (*is_key_pressed)(int key);
     bool (*is_mouse_button_pressed)(int button);
@@ -44,82 +67,49 @@ typedef struct Raylib {
     void (*draw_triangle)(Vector2 v1, Vector2 v2, Vector2 v3, Color color);
 } Raylib;
 
-enum {
-    NOTE_A,
-    NOTE_A_SHARP,
-    NOTE_B,
-    NOTE_C,
-    NOTE_C_SHARP,
-    NOTE_D,
-    NOTE_D_SHARP,
-    NOTE_E,
-    NOTE_F,
-    NOTE_F_SHARP,
-    NOTE_G ,
-    NOTE_G_SHARP ,
-    NOTE_COUNT,
-};
+#define SCALE_DEGREE_COUNT 7
+typedef uint8 Scale[SCALE_DEGREE_COUNT];
 
-enum {
-    CHORD_TYPE_MAJOR,
-    CHORD_TYPE_MINOR,
-    CHORD_TYPE_DIMINISHED,
-    CHORD_TYPE_AUGMENTED,
-};
-
-enum {
-    SCALE_TYPE_MAJOR,
-    SCALE_TYPE_DORIAN,
-    SCALE_TYPE_PHRYGIAN,
-    SCALE_TYPE_LYDIAN,
-    SCALE_TYPE_MIXOLYDIAN,
-    SCALE_TYPE_MINOR,
-    SCALE_TYPE_LOCRIAN,
-    SCALE_TYPE_HARMONIC_MINOR,
-    SCALE_TYPE_MELODIC_MINOR,
-    SCALE_TYPE_COUNT,
-};
-
-#define SCALE_NOTE_COUNT 7
-typedef uint8 Scale[SCALE_NOTE_COUNT];
-#define SCALE_MAJOR             ((Scale){0, 2, 4, 5, 7, 9, 11})
-#define SCALE_DORIAN            ((Scale){0, 2, 3, 5, 7, 9, 10})
-#define SCALE_PHRYGIAN          ((Scale){0, 1, 3, 5, 7, 8, 10})
-#define SCALE_LYDIAN            ((Scale){0, 2, 4, 6, 7, 9, 11})
-#define SCALE_MIXOLYDIAN        ((Scale){0, 2, 4, 5, 7, 9, 10})
-#define SCALE_MINOR             ((Scale){0, 2, 3, 5, 7, 8, 10})
-#define SCALE_LOCRIAN           ((Scale){0, 1, 3, 5, 6, 8, 10})
-#define SCALE_HARMONIC_MINOR    ((Scale){0, 2, 3, 5, 7, 8, 11})
-#define SCALE_MELODIC_MINOR     ((Scale){0, 2, 3, 5, 7, 9, 11})
-
-#define SEQUENCER_AMOUNT 8
+#define SEQUENCER_AMOUNT 16
 typedef uint8 Sequencer[SEQUENCER_AMOUNT];
 
-typedef uint8 chordstr[8];
+#define CHORD_NAME_CAPACITY 16
 typedef struct Chord {
     uint8 root;
     uint8 third;
     uint8 fifth;
-    chordstr text;
     uint8 type;
+    char symbol[CHORD_NAME_CAPACITY];
+    char roman[CHORD_NAME_CAPACITY];
 } Chord;
 
+#define MAX_SELECTABLES 16
+typedef struct Selectables {
+    uint8 type;
+    Rectangle rectangle;
+    char items[MAX_SELECTABLES][32];
+    uint8 item_count;
+    uint8 *reference;
+} Selectables;
+
 typedef struct State {
+    uint8 state;
+    uint8 scale_type;
+    uint8 scale_root;
+    uint8 vibe;
+    uint8 vibes_per_chord;
     AudioStream audio_stream;
     Font font;
     int font_spacing;
-    int vibe;
-    float chord_interval;
+    float time_per_chord;
     float chord_timer;
-    uint64 flags;
+    int flags;
     Scale scale;
-    uint8 scale_type;
-    uint8 scale_root;
     Sequencer sequencer;
-    int current_chord_idx;
-    Chord current_chord;
+    int chord_idx;
     float volume_fade;
     float volume_manual;
+    Selectables selectables;
 } State;
 
 #endif

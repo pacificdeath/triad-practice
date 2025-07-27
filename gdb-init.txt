@@ -1,0 +1,7 @@
+set confirm off
+break exit
+break WindowShouldClose
+commands
+  up 2
+end
+run

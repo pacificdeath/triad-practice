@@ -22,6 +22,7 @@ set DEBUG=""
 set GDB=0
 set COMPILE_ONLY=0
 set DLL_LAST_MODIFIED=""
+set GDB_INIT="./gdb-init.txt"
 
 for %%x in (%*) do (
     if "%%x"=="help" (
@@ -80,7 +81,7 @@ if %ENGINE% equ 1 (
 
 if %errorlevel% equ 0 (
     if %GDB% equ 1 (
-        gdb --args %ENGINE_EXE%
+        gdb --command %GDB_INIT% --args %ENGINE_EXE%
     ) else if %START% equ 1 (
         %ENGINE_EXE%
     )
