@@ -70,8 +70,10 @@ typedef struct Raylib {
 #define SCALE_DEGREE_COUNT 7
 typedef uint8 Scale[SCALE_DEGREE_COUNT];
 
-#define SEQUENCER_AMOUNT 16
-typedef uint8 Sequencer[SEQUENCER_AMOUNT];
+#define SEQUENCER_AMOUNT 4
+#define SEQUENCER_ROW 8
+#define SEQUENCER_ELEMENTS (SEQUENCER_AMOUNT * SEQUENCER_ROW)
+typedef uint8 Sequencers[SEQUENCER_ELEMENTS];
 
 #define CHORD_NAME_CAPACITY 16
 typedef struct Chord {
@@ -105,11 +107,14 @@ typedef struct State {
     float chord_timer;
     int flags;
     Scale scale;
-    Sequencer sequencer;
+    Sequencers sequencer;
+    bool sequencer_states[SEQUENCER_AMOUNT];
+    uint8 sequencer_reps[SEQUENCER_AMOUNT];
     int chord_idx;
     float volume_fade;
     float volume_manual;
     Selectables selectables;
+    Vector2 mouse_position;
 } State;
 
 #endif
