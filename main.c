@@ -1,5 +1,9 @@
+#include <math.h>
+#include <stdlib.h>
+#include <stdint.h>
 #include "raylib/include/raylib.h"
-#include "math.h"
+
+#define WINDOW_NAME "Triad Practice"
 
 #define BG_COLOR                            ((Color){32,32,32,255})
 #define BG_COLOR_THING                      ((Color){0,128,255,255})
@@ -47,6 +51,82 @@
 #define SELECTABLE_ITEM_BG_COLOR_ODD ((Color){48,48,48,255})
 #define SELECTABLE_ITEM_BG_COLOR_EVEN ((Color){64,64,64,255})
 #define SELECTABLE_ITEM_BG_COLOR_SELECTED ((Color){0,0,255,255})
+
+#ifdef DEBUG
+    #include <stdio.h>
+    __attribute__((unused))
+    static void are_you_a_horrible_person(bool condition, char *condition_string, char *file_name, int line_number) {
+        if (!(condition)) {
+            printf("You are a horrible person\n");
+            printf(" -> ");
+            printf("%s", file_name);
+            printf(":");
+            printf("%i\n", line_number);
+            printf(" -> (");
+            printf("%s", condition_string);
+            printf(")\n");
+            exit(1);
+        }
+    }
+    #define ASSERT(condition) do { are_you_a_horrible_person(condition, #condition, __FILE__, __LINE__); } while (0)
+#else
+    #define ASSERT(condition)
+#endif
+
+typedef uint8_t uint8;
+typedef uint16_t uint16;
+typedef uint32_t uint32;
+typedef uint64_t uint64;
+
+#define SCALE_DEGREE_COUNT 7
+typedef uint8 Scale[SCALE_DEGREE_COUNT];
+
+#define SEQUENCER_AMOUNT 4
+#define SEQUENCER_ROW 8
+#define SEQUENCER_ELEMENTS (SEQUENCER_AMOUNT * SEQUENCER_ROW)
+typedef uint8 Sequencers[SEQUENCER_ELEMENTS];
+
+#define CHORD_NAME_CAPACITY 16
+typedef struct Chord {
+    uint8 root;
+    uint8 third;
+    uint8 fifth;
+    uint8 type;
+    char symbol[CHORD_NAME_CAPACITY];
+    char roman[CHORD_NAME_CAPACITY];
+} Chord;
+
+#define MAX_SELECTABLES 16
+typedef struct Selectables {
+    uint8 type;
+    Rectangle rectangle;
+    char items[MAX_SELECTABLES][32];
+    uint8 item_count;
+    uint8 *reference;
+} Selectables;
+
+typedef struct State {
+    uint8 state;
+    uint8 scale_type;
+    uint8 scale_root;
+    uint8 vibe;
+    uint8 vibes_per_chord;
+    AudioStream audio_stream;
+    Font font;
+    int font_spacing;
+    float time_per_chord;
+    float chord_timer;
+    int flags;
+    Scale scale;
+    Sequencers sequencer;
+    bool sequencer_states[SEQUENCER_AMOUNT];
+    uint8 sequencer_reps[SEQUENCER_AMOUNT];
+    int chord_idx;
+    float volume_fade;
+    float volume_manual;
+    Selectables selectables;
+    Vector2 mouse_position;
+} State;
 
 enum {
     STATE_MAIN,
@@ -157,8 +237,8 @@ enum {
 static State *state;
 
 inline static float size_multiplier() {
-    int width = raylib->get_screen_width();
-    int height = raylib->get_screen_height();
+    int width = GetScreenWidth();
+    int height = GetScreenHeight();
     return (width < height) ? width : height;
 }
 
@@ -188,7 +268,7 @@ bool in_rectangle(Rectangle rec, Vector2 v) {
 }
 
 inline static void draw_rectangle_lines(Rectangle rec) {
-    raylib->draw_rectangle_lines_ex(rec, rectangle_lines_size(), RECTANGLE_LINES_COLOR);
+    DrawRectangleLinesEx(rec, rectangle_lines_size(), RECTANGLE_LINES_COLOR);
 }
 
 const char *get_note_name(int note) {
@@ -259,9 +339,9 @@ const char *get_vibe_name(int vibe) {
 
 void draw_text_in_rectangle(Rectangle rec, const char *text, Color color) {
     Vector2 position = { rec.x + rec.width / 2, rec.y + rec.height / 2 };
-    Vector2 dimensions = raylib->measure_text_ex(state->font, text, font_size(), state->font_spacing);
+    Vector2 dimensions = MeasureTextEx(state->font, text, font_size(), state->font_spacing);
     Vector2 origin = { dimensions.x / 2, dimensions.y / 2 };
-    raylib->draw_text_pro(state->font, text, position, origin, 0, font_size(), state->font_spacing, color);
+    DrawTextPro(state->font, text, position, origin, 0, font_size(), state->font_spacing, color);
 }
 
 int truncate_accidentals(int note) {
@@ -313,13 +393,13 @@ Chord get_sequencer_chord(int degree) {
     int fifth_interval = non_inversed_fifth - chord.root;
 
     switch (degree) {
-        case SCALE_DEGREE_I: raylib->text_copy(chord.roman, "I"); break;
-        case SCALE_DEGREE_II: raylib->text_copy(chord.roman, "II"); break;
-        case SCALE_DEGREE_III: raylib->text_copy(chord.roman, "III"); break;
-        case SCALE_DEGREE_IV: raylib->text_copy(chord.roman, "IV"); break;
-        case SCALE_DEGREE_V: raylib->text_copy(chord.roman, "V"); break;
-        case SCALE_DEGREE_VI: raylib->text_copy(chord.roman, "VI"); break;
-        case SCALE_DEGREE_VII: raylib->text_copy(chord.roman, "VII"); break;
+        case SCALE_DEGREE_I: TextCopy(chord.roman, "I"); break;
+        case SCALE_DEGREE_II: TextCopy(chord.roman, "II"); break;
+        case SCALE_DEGREE_III: TextCopy(chord.roman, "III"); break;
+        case SCALE_DEGREE_IV: TextCopy(chord.roman, "IV"); break;
+        case SCALE_DEGREE_V: TextCopy(chord.roman, "V"); break;
+        case SCALE_DEGREE_VI: TextCopy(chord.roman, "VI"); break;
+        case SCALE_DEGREE_VII: TextCopy(chord.roman, "VII"); break;
     }
 
     switch (third_interval) {
@@ -330,7 +410,7 @@ Chord get_sequencer_chord(int degree) {
                     break;
                 case INTERVAL_AUGMENTED_FIFTH:
                     chord.type = CHORD_TYPE_AUGMENTED;
-                    raylib->text_copy(chord.roman, raylib->text_format("%s+", chord.roman));
+                    TextCopy(chord.roman, TextFormat("%s+", chord.roman));
                     break;
                 default:
                     ASSERT(false);
@@ -341,12 +421,12 @@ Chord get_sequencer_chord(int degree) {
             switch (fifth_interval) {
                 case INTERVAL_FIFTH:
                     chord.type = CHORD_TYPE_MINOR;
-                    raylib->text_copy(chord.roman, raylib->text_to_lower(chord.roman));
+                    TextCopy(chord.roman, TextToLower(chord.roman));
                     break;
                 case INTERVAL_FLAT_FIFTH:
                     chord.type = CHORD_TYPE_DIMINISHED;
-                    raylib->text_copy(chord.roman, raylib->text_to_lower(chord.roman));
-                    raylib->text_copy(chord.roman, raylib->text_format("%s°", chord.roman));
+                    TextCopy(chord.roman, TextToLower(chord.roman));
+                    TextCopy(chord.roman, TextFormat("%s°", chord.roman));
                     break;
                 default:
                     ASSERT(false);
@@ -370,13 +450,13 @@ Chord get_sequencer_chord(int degree) {
     }
 
     switch (natural_chord_root) {
-        case NOTE_A: raylib->text_copy(chord.symbol, "A"); break;
-        case NOTE_B: raylib->text_copy(chord.symbol, "B"); break;
-        case NOTE_C: raylib->text_copy(chord.symbol, "C"); break;
-        case NOTE_D: raylib->text_copy(chord.symbol, "D"); break;
-        case NOTE_E: raylib->text_copy(chord.symbol, "E"); break;
-        case NOTE_F: raylib->text_copy(chord.symbol, "F"); break;
-        case NOTE_G: raylib->text_copy(chord.symbol, "G"); break;
+        case NOTE_A: TextCopy(chord.symbol, "A"); break;
+        case NOTE_B: TextCopy(chord.symbol, "B"); break;
+        case NOTE_C: TextCopy(chord.symbol, "C"); break;
+        case NOTE_D: TextCopy(chord.symbol, "D"); break;
+        case NOTE_E: TextCopy(chord.symbol, "E"); break;
+        case NOTE_F: TextCopy(chord.symbol, "F"); break;
+        case NOTE_G: TextCopy(chord.symbol, "G"); break;
         default: ASSERT(false);
     }
 
@@ -395,7 +475,7 @@ Chord get_sequencer_chord(int degree) {
                 ASSERT(false);
         }
 
-        raylib->text_copy(chord.symbol, raylib->text_format("%s%s", chord.symbol, accidental_text));
+        TextCopy(chord.symbol, TextFormat("%s%s", chord.symbol, accidental_text));
     }
 
     if (chord.type != CHORD_TYPE_MAJOR) {
@@ -407,14 +487,14 @@ Chord get_sequencer_chord(int degree) {
             default: ASSERT(false);
         }
 
-        raylib->text_copy(chord.symbol, raylib->text_format("%s%s", chord.symbol, extension));
+        TextCopy(chord.symbol, TextFormat("%s%s", chord.symbol, extension));
     }
 
     return chord;
 }
 
 inline static float get_thing_height() {
-    return raylib->get_screen_height() / VERTICAL_POSITION_COUNT;
+    return GetScreenHeight() / VERTICAL_POSITION_COUNT;
 }
 
 inline static float get_selectable_item_height() {
@@ -426,13 +506,13 @@ Rectangle get_volume_slider_rectangle() {
     return (Rectangle) {
         .x = 0,
         .y = height * VERTICAL_POSITION_OF_AUDIO_CONTROLS,
-        .width = raylib->get_screen_width(),
+        .width = GetScreenWidth(),
         .height = height,
     };
 }
 
 Rectangle get_vibe_button_rectangle() {
-    float width = raylib->get_screen_width() / 4;
+    float width = GetScreenWidth() / 4;
     float height = get_thing_height();
     return (Rectangle) {
         .x = 0,
@@ -458,13 +538,13 @@ Rectangle get_interval_slider_rectangle() {
     return (Rectangle) {
         .x = vibes_per_chord_rec.x + vibes_per_chord_rec.width,
         .y = vibe_button_rec.y,
-        .width = raylib->get_screen_width() - vibe_button_rec.width - vibes_per_chord_rec.width,
+        .width = GetScreenWidth() - vibe_button_rec.width - vibes_per_chord_rec.width,
         .height = vibe_button_rec.height,
     };
 }
 
 Rectangle get_scale_root_button_rectangle() {
-    float width = raylib->get_screen_width() / 4;
+    float width = GetScreenWidth() / 4;
     float height = get_thing_height();
     return (Rectangle) {
         .x = 0,
@@ -490,13 +570,13 @@ Rectangle get_scale_button_rectangle() {
     return (Rectangle) {
         .x = accidental_rec.x + accidental_rec.width,
         .y = root_rec.y,
-        .width = raylib->get_screen_width() - root_rec.width - accidental_rec.width,
+        .width = GetScreenWidth() - root_rec.width - accidental_rec.width,
         .height = root_rec.height,
     };
 }
 
 Rectangle get_play_pause_button_rectangle() {
-    float width = raylib->get_screen_width() / 4;
+    float width = GetScreenWidth() / 4;
     float height = get_thing_height();
     return (Rectangle) {
         .x = 0,
@@ -509,12 +589,12 @@ Rectangle get_play_pause_button_rectangle() {
 Rectangle get_progress_bar_rectangle() {
     Rectangle rec = get_play_pause_button_rectangle();
     rec.x += rec.width;
-    rec.width = raylib->get_screen_width() - rec.x;
+    rec.width = GetScreenWidth() - rec.x;
     return rec;
 }
 
 inline static float get_sequencer_element_width() {
-    return (float)(raylib->get_screen_width()) / ((float)SEQUENCER_ROW + 1.0f);
+    return (float)(GetScreenWidth()) / ((float)SEQUENCER_ROW + 1.0f);
 }
 
 Rectangle get_sequencer_rectangle() {
@@ -577,43 +657,43 @@ void prepare_select_state(int selectable_type, Vector2 position, uint8 *referenc
             state->selectables.item_count = SCALE_DEGREE_COUNT + 1;
             for (int i = 0; i < SCALE_DEGREE_COUNT; i++) {
                 Chord chord = get_sequencer_chord(i);
-                const char *text = raylib->text_format("%s (%s)", chord.roman, chord.symbol);
-                raylib->text_copy(state->selectables.items[i], text);
+                const char *text = TextFormat("%s (%s)", chord.roman, chord.symbol);
+                TextCopy(state->selectables.items[i], text);
             }
-            raylib->text_copy(state->selectables.items[SCALE_DEGREE_COUNT], "off");
+            TextCopy(state->selectables.items[SCALE_DEGREE_COUNT], "off");
             break;
         case SELECTABLE_TYPE_SCALE_ROOT:
             state->selectables.item_count = NOTE_COUNT;
             for (int i = 0; i < state->selectables.item_count; i++) {
                 const char *text = get_note_name(i);
-                raylib->text_copy(state->selectables.items[i], text);
+                TextCopy(state->selectables.items[i], text);
             }
             break;
         case SELECTABLE_TYPE_SCALE_TYPE:
             state->selectables.item_count = SCALE_TYPE_COUNT;
             for (int i = 0; i < state->selectables.item_count; i++) {
                 const char *text = get_scale_name(i);
-                raylib->text_copy(state->selectables.items[i], text);
+                TextCopy(state->selectables.items[i], text);
             }
             break;
         case SELECTABLE_TYPE_VIBE:
             state->selectables.item_count = VIBE_COUNT;
             for (int i = 0; i < state->selectables.item_count; i++) {
-                raylib->text_copy(state->selectables.items[i], get_vibe_name(i));
+                TextCopy(state->selectables.items[i], get_vibe_name(i));
             }
             break;
         case SELECTABLE_TYPE_VIBES_PER_CHORD:
             state->selectables.item_count = 5;
-            raylib->text_copy(state->selectables.items[0], "1/chord");
-            raylib->text_copy(state->selectables.items[1], "2/chord");
-            raylib->text_copy(state->selectables.items[2], "4/chord");
-            raylib->text_copy(state->selectables.items[3], "8/chord");
-            raylib->text_copy(state->selectables.items[4], "16/chord");
+            TextCopy(state->selectables.items[0], "1/chord");
+            TextCopy(state->selectables.items[1], "2/chord");
+            TextCopy(state->selectables.items[2], "4/chord");
+            TextCopy(state->selectables.items[3], "8/chord");
+            TextCopy(state->selectables.items[4], "16/chord");
             break;
     }
 
-    float screen_width = raylib->get_screen_width();
-    float screen_height = raylib->get_screen_height();
+    float screen_width = GetScreenWidth();
+    float screen_height = GetScreenHeight();
 
     state->selectables.rectangle.width = screen_width * SELECTABLES_BOX_WIDTH_MULTIPLIER;
 
@@ -637,7 +717,7 @@ void prepare_select_state(int selectable_type, Vector2 position, uint8 *referenc
 void draw_scale_root_button() {
     Rectangle rec = get_scale_root_button_rectangle();
     const char *text = get_note_name(state->scale_root);
-    raylib->draw_rectangle_rec(rec, BG_COLOR_THING);
+    DrawRectangleRec(rec, BG_COLOR_THING);
     draw_rectangle_lines(rec);
     draw_text_in_rectangle(rec, text, TEXT_COLOR_THING);
 }
@@ -647,7 +727,7 @@ void draw_scale_accidental_button() {
 
     const char *text = has_flag(FLAG_FLATS) ? "Flats" : "Sharps";
 
-    raylib->draw_rectangle_rec(rec, BG_COLOR_THING);
+    DrawRectangleRec(rec, BG_COLOR_THING);
     draw_rectangle_lines(rec);
     draw_text_in_rectangle(rec, text, TEXT_COLOR_THING);
 }
@@ -655,7 +735,7 @@ void draw_scale_accidental_button() {
 void draw_scale_button() {
     Rectangle rec = get_scale_button_rectangle();
     const char *text = get_scale_name(state->scale_type);
-    raylib->draw_rectangle_rec(rec, BG_COLOR_THING);
+    DrawRectangleRec(rec, BG_COLOR_THING);
     draw_rectangle_lines(rec);
     draw_text_in_rectangle(rec, text, TEXT_COLOR_THING);
 }
@@ -665,26 +745,26 @@ void draw_volume_slider() {
     float fill = rec.width * state->volume_manual;
     Color filled_color;
     Color unfilled_color;
-    raylib->draw_rectangle(rec.x, rec.y, fill, rec.height, COLOR_FILLED);
-    raylib->draw_rectangle(rec.x + fill, rec.y, rec.x + rec.width - fill, rec.height, COLOR_UNFILLED);
+    DrawRectangle(rec.x, rec.y, fill, rec.height, COLOR_FILLED);
+    DrawRectangle(rec.x + fill, rec.y, rec.x + rec.width - fill, rec.height, COLOR_UNFILLED);
     draw_rectangle_lines(rec);
-    draw_text_in_rectangle(rec, raylib->text_format("Volume: %.2f%%", state->volume_manual * 100), TEXT_COLOR_THING);
+    draw_text_in_rectangle(rec, TextFormat("Volume: %.2f%%", state->volume_manual * 100), TEXT_COLOR_THING);
 }
 
 void draw_vibes_per_chord_button() {
     Rectangle rec = get_vibes_per_chord_rectangle();
-    raylib->draw_rectangle_rec(rec, BG_COLOR_THING);
+    DrawRectangleRec(rec, BG_COLOR_THING);
     draw_rectangle_lines(rec);
-    draw_text_in_rectangle(rec, raylib->text_format("%d/chord", state->vibes_per_chord), TEXT_COLOR_THING);
+    draw_text_in_rectangle(rec, TextFormat("%d/chord", state->vibes_per_chord), TEXT_COLOR_THING);
 }
 
 void draw_interval_slider() {
     Rectangle rec = get_interval_slider_rectangle();
     float fill = rec.width * ((float)state->time_per_chord / get_time_per_chord_max());
-    raylib->draw_rectangle(rec.x, rec.y, fill, rec.height, COLOR_FILLED);
-    raylib->draw_rectangle(rec.x + fill, rec.y, rec.width - fill, rec.height, COLOR_UNFILLED);
+    DrawRectangle(rec.x, rec.y, fill, rec.height, COLOR_FILLED);
+    DrawRectangle(rec.x + fill, rec.y, rec.width - fill, rec.height, COLOR_UNFILLED);
     draw_rectangle_lines(rec);
-    draw_text_in_rectangle(rec, raylib->text_format("Interval: %.1f sec", state->time_per_chord), TEXT_COLOR_THING);
+    draw_text_in_rectangle(rec, TextFormat("Interval: %.1f sec", state->time_per_chord), TEXT_COLOR_THING);
 }
 
 bool is_sequencer_active() {
@@ -760,7 +840,7 @@ void draw_sequencer() {
                 button_text_color.b / 4,
                 255
             };
-            raylib->draw_rectangle_rec(button_rec, button_bg_color);
+            DrawRectangleRec(button_rec, button_bg_color);
             draw_rectangle_lines(button_rec);
             draw_text_in_rectangle(button_rec, button_text, button_text_color);
 
@@ -772,7 +852,7 @@ void draw_sequencer() {
                 outline.width -= rectangle_lines_size() * 2;
                 outline.height -= rectangle_lines_size() * 2;
 
-                raylib->draw_rectangle_lines_ex(outline, rectangle_lines_size(), button_text_color);
+                DrawRectangleLinesEx(outline, rectangle_lines_size(), button_text_color);
                 draw_text_in_rectangle(cursor_rec, "▶", button_text_color);
             }
         }
@@ -781,7 +861,7 @@ void draw_sequencer() {
 
 void draw_vibe_button() {
     Rectangle rec = get_vibe_button_rectangle();
-    raylib->draw_rectangle_rec(rec, BG_COLOR_THING);
+    DrawRectangleRec(rec, BG_COLOR_THING);
     draw_rectangle_lines(rec);
     draw_text_in_rectangle(rec, get_vibe_name(state->vibe), TEXT_COLOR_THING);
 }
@@ -789,10 +869,10 @@ void draw_vibe_button() {
 void draw_play_pause_button() {
     Rectangle rec = get_play_pause_button_rectangle();
     if (has_flag(FLAG_PLAYING)) {
-        raylib->draw_rectangle_rec(rec, COLOR_FILLED_PROGRESS_BAR);
+        DrawRectangleRec(rec, COLOR_FILLED_PROGRESS_BAR);
         draw_text_in_rectangle(rec, "PLAYING", TEXT_COLOR_THING);
     } else {
-        raylib->draw_rectangle_rec(rec, COLOR_UNFILLED_PROGRESS_BAR);
+        DrawRectangleRec(rec, COLOR_UNFILLED_PROGRESS_BAR);
         draw_text_in_rectangle(rec, "PAUSED", TEXT_COLOR_THING);
     }
     draw_rectangle_lines(rec);
@@ -801,8 +881,8 @@ void draw_play_pause_button() {
 void draw_progress_bar() {
     Rectangle rec = get_progress_bar_rectangle();
     float fill = rec.width * (state->chord_timer / state->time_per_chord);
-    raylib->draw_rectangle(rec.x, rec.y, fill, rec.height, COLOR_FILLED_PROGRESS_BAR);
-    raylib->draw_rectangle(rec.x + fill, rec.y, rec.width - fill, rec.height, COLOR_UNFILLED_PROGRESS_BAR);
+    DrawRectangle(rec.x, rec.y, fill, rec.height, COLOR_FILLED_PROGRESS_BAR);
+    DrawRectangle(rec.x + fill, rec.y, rec.width - fill, rec.height, COLOR_UNFILLED_PROGRESS_BAR);
     draw_rectangle_lines(rec);
 }
 
@@ -823,11 +903,11 @@ void draw_selectables() {
             bg_color = SELECTABLE_ITEM_BG_COLOR_ODD;
         }
         const char *text = state->selectables.items[i];
-        raylib->draw_rectangle_rec(rec, bg_color);
+        DrawRectangleRec(rec, bg_color);
         Vector2 position = { rec.x + item_height / 4, rec.y + rec.height / 2 };
-        Vector2 dimensions = raylib->measure_text_ex(state->font, text, font_size(), state->font_spacing);
+        Vector2 dimensions = MeasureTextEx(state->font, text, font_size(), state->font_spacing);
         Vector2 origin = { 0, dimensions.y / 2 };
-        raylib->draw_text_pro(state->font, text, position, origin, 0, font_size(), state->font_spacing, TEXT_COLOR_THING);
+        DrawTextPro(state->font, text, position, origin, 0, font_size(), state->font_spacing, TEXT_COLOR_THING);
     }
 }
 
@@ -1078,6 +1158,9 @@ void progress() {
 }
 
 void init() {
+#ifndef DEBUG
+    SetTraceLogLevel(LOG_WARNING);
+#endif
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow(1200, 800, WINDOW_NAME);
     SetTargetFPS(60);
@@ -1126,7 +1209,7 @@ void init() {
         allChars[asciiCount + i] = extraSymbols[i];
     }
 
-    state->font = raylib->load_font_ex("DejaVuSans.ttf", 200, allChars, totalCount);
+    state->font = LoadFontEx("DejaVuSans.ttf", 200, allChars, totalCount);
     state->font_spacing = 2;
 
     state->chord_idx = 0;
@@ -1139,10 +1222,10 @@ void init() {
 }
 
 void update() {
-    state->mouse_position = raylib->get_mouse_position();
+    state->mouse_position = GetMousePosition();
 
     if (state->volume_fade < 1.0f) {
-        state->volume_fade += raylib->get_frame_time() * 10.0f;
+        state->volume_fade += GetFrameTime() * 10.0f;
         if (state->volume_fade > 1.0f) {
             state->volume_fade = 1.0f;
         }
@@ -1150,13 +1233,13 @@ void update() {
 
     {
         Rectangle rec = get_volume_slider_rectangle(state);
-        if (raylib->is_mouse_button_down(MOUSE_BUTTON_LEFT) && in_rectangle(rec, state->mouse_position)) {
+        if (IsMouseButtonDown(MOUSE_BUTTON_LEFT) && in_rectangle(rec, state->mouse_position)) {
             state->volume_manual = (state->mouse_position.x - rec.x) / rec.width;
         }
     }
 
     if (has_flag(FLAG_PLAYING)) {
-        state->chord_timer += raylib->get_frame_time();
+        state->chord_timer += GetFrameTime();
         if (state->chord_timer > state->time_per_chord) {
             progress();
         }
@@ -1165,12 +1248,12 @@ void update() {
     float vibes_per_chord = state->vibes_per_chord;
     {
         Rectangle rec = get_interval_slider_rectangle(state);
-        if (raylib->is_mouse_button_down(0) && in_rectangle(rec, state->mouse_position)) {
+        if (IsMouseButtonDown(0) && in_rectangle(rec, state->mouse_position)) {
             state->time_per_chord = ((state->mouse_position.x - rec.x) / rec.width) * get_time_per_chord_max();
         }
     }
 
-    if (raylib->is_mouse_button_pressed(0)) {
+    if (IsMouseButtonPressed(0)) {
         switch (state->state) {
             case STATE_MAIN: {
                 if (in_rectangle(get_sequencer_state_section_rectangle(), state->mouse_position)) {
@@ -1238,10 +1321,11 @@ void update() {
     }
 }
 
-void render(Raylib *raylib, State *state) {
+void render() {
     BeginDrawing();
 
-    raylib->clear_background(BG_COLOR);
+    ClearBackground(BG_COLOR);
+
     draw_volume_slider();
 
     draw_sequencer();
@@ -1264,7 +1348,7 @@ void render(Raylib *raylib, State *state) {
     EndDrawing();
 }
 
-void cleanup(Raylib *raylib, State *state) {
+void cleanup() {
     UnloadAudioStream(state->audio_stream);
     CloseAudioDevice();
     free(state);
