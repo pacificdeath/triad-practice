@@ -1,6 +1,6 @@
 @echo off
 
-set "main_c=.\main.c"
+set "main_c=.\src\main.c"
 set "raylib_dir=.\raylib"
 set "build_dir=.\build"
 set "main_exe=%build_dir%\main.exe"
