@@ -918,7 +918,7 @@ float note_to_freq(uint8 note, int octave) {
 
 #define FREQ_COUNT 4
 void chord_synthesizer(void *buffer, unsigned int frames) {
-    if (!has_flag(FLAG_PLAYING)) {
+    if (!has_flag(FLAG_PLAYING) || !is_sequencer_active()) {
         return;
     }
 
