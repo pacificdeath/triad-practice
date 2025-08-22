@@ -65,6 +65,8 @@ void init() {
 void update() {
     state->mouse_position = GetMousePosition();
 
+    // TODO: volume fade is not really doing anything relevant
+    // was it not supposed to fade on start and stop?
     if (state->volume_fade < 1.0f) {
         state->volume_fade += GetFrameTime() * 10.0f;
         if (state->volume_fade > 1.0f) {
@@ -76,13 +78,6 @@ void update() {
         Rectangle rec = get_volume_slider_rectangle(state);
         if (IsMouseButtonDown(MOUSE_BUTTON_LEFT) && in_rectangle(rec, state->mouse_position)) {
             state->volume_manual = (state->mouse_position.x - rec.x) / rec.width;
-        }
-    }
-
-    if (has_flag(FLAG_PLAYING)) {
-        state->chord_timer += GetFrameTime();
-        if (state->chord_timer > state->time_per_chord) {
-            progress();
         }
     }
 

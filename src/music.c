@@ -202,11 +202,44 @@ void progress() {
     }
 }
 
+inline static float trapezoid_ramp(float a, float b, float x) {
+    if (x <= a || x >= b) return 0.0f;
+
+    float len = b - a;
+    float t = (x - a) / len;
+    float ramp = 0.1f;
+
+    if (t < ramp) {
+        return t / ramp;
+    } else if (t > 1.0f - ramp) {
+        return (1.0f - t) / ramp;
+    } else {
+        return 1.0f;
+    }
+}
+
+typedef enum ChordBits {
+    BIT_NONE = 0,
+    BIT_1 = 1 << 0,
+    BIT_3 = 1 << 1,
+    BIT_5 = 1 << 2,
+    BIT_5_LOW = 1 << 3,
+    BIT_ALL = ~0,
+} ChordBits;
+
+typedef struct VibeStep {
+    float start;
+    float end;
+    ChordBits bits;
+} VibeStep;
+
 #define FREQ_COUNT 4
 void chord_synthesizer(void *buffer, unsigned int frames) {
     if (!has_flag(FLAG_PLAYING) || !is_sequencer_active()) {
         return;
     }
+
+    float sample_rate = 44100.0f;
 
     Chord chord = get_sequencer_chord(state->sequencer[state->chord_idx]);
 
@@ -252,8 +285,6 @@ void chord_synthesizer(void *buffer, unsigned int frames) {
         freq[3] = freq[2] / 2.0f;
     }
 
-    float sample_rate = 44100.0f;
-
     float lfo_depth = 5.0f;
     float lfo_rate = 6.0f;
     static float lfo_phase = 0.0f;
@@ -264,113 +295,97 @@ void chord_synthesizer(void *buffer, unsigned int frames) {
 
     float incr[FREQ_COUNT] = {0};
     static float phase[FREQ_COUNT] = {0};
-    short *d = (short *)buffer;
+    short *d = (int16 *)buffer;
 
     float range = state->time_per_chord / state->vibes_per_chord;
-    float position = state->chord_timer;
-    while (position > range) position -= range;
 
     int active_tri = 0;
+    float trapezoid_ramp_multiplier = 0.0f;
+
+    int step_count = 0;
+    VibeStep steps[16];
+    float fract = -1.0f;
 
     switch (state->vibe) {
         case VIBE_POLKA: {
-            float fract = range / 8.0f;
-
-            if (position < fract * 2.0f) {
-                active_tri |= 1;
-            } else if (position < fract * 3.0f) {
-                active_tri |= 2;
-                active_tri |= 4;
-            } else if (position < fract * 4.0f) {
-                // nothing
-            } else if (position < fract * 6.0f) {
-                active_tri |= 8;
-            } else if (position < fract * 7.0f) {
-                active_tri |= 2;
-                active_tri |= 4;
-            } else {
-                // nothing
-            }
-
+            fract = range / 8.0f;
+            steps[step_count++] = (VibeStep){ 0.0f, 2.0f, BIT_1 };
+            steps[step_count++] = (VibeStep){ 2.0f, 3.0f, BIT_3|BIT_5 };
+            steps[step_count++] = (VibeStep){ 3.0f, 4.0f, BIT_NONE };
+            steps[step_count++] = (VibeStep){ 4.0f, 6.0f, BIT_5_LOW };
+            steps[step_count++] = (VibeStep){ 6.0f, 7.0f, BIT_3|BIT_5 };
+            steps[step_count++] = (VibeStep){ 7.0f, 8.0f, BIT_NONE };
             break;
         }
 
         case VIBE_SWING: {
-            float fract = range / 6.0f;
-
-            if (position < fract * 1.0f) {
-                active_tri |= 1;
-            } else if (position < fract * 2.0f) {
-                // nothing
-            } else if (position < fract * 3.0f) {
-                active_tri |= 2;
-                active_tri |= 4;
-            } else if (position < fract * 4.0f) {
-                active_tri |= 8;
-            } else if (position < fract * 5.0f) {
-                // nothing
-            } else {
-                active_tri |= 2;
-                active_tri |= 4;
-            }
-
+            fract = range / 6.0f;
+            steps[step_count++] = (VibeStep){ 0.0f, 1.0f, BIT_1 };
+            steps[step_count++] = (VibeStep){ 1.0f, 2.0f, BIT_NONE };
+            steps[step_count++] = (VibeStep){ 2.0f, 3.0f, BIT_3|BIT_5 };
+            steps[step_count++] = (VibeStep){ 3.0f, 4.0f, BIT_5_LOW };
+            steps[step_count++] = (VibeStep){ 4.0f, 5.0f, BIT_NONE };
+            steps[step_count++] = (VibeStep){ 5.0f, 6.0f, BIT_3|BIT_5 };
             break;
         }
 
         case VIBE_WALTZ: {
-            float fract = range / 12.0f;
-
-            if (position < fract * 2.0f) {
-                active_tri |= 1;
-            } else if (position < fract * 3.0f) {
-                active_tri |= 2;
-                active_tri |= 4;
-            } else if (position < fract * 4.0f) {
-                // nothing
-            } else if (position < fract * 5.0f) {
-                active_tri |= 2;
-                active_tri |= 4;
-            } else if (position < fract * 6.0f) {
-                // nothing
-            } else if (position < fract * 8.0f) {
-                active_tri |= 8;
-            } else if (position < fract * 9.0f) {
-                active_tri |= 2;
-                active_tri |= 4;
-            } else if (position < fract * 10.0f) {
-                // nothing
-            } else if (position < fract * 11.0f) {
-                active_tri |= 2;
-                active_tri |= 4;
-            } else {
-                // nothing
-            }
-
+            fract = range / 12.0f;
+            steps[step_count++] = (VibeStep){ 0.0f, 2.0f, BIT_1 };
+            steps[step_count++] = (VibeStep){ 2.0f, 3.0f, BIT_3|BIT_5 };
+            steps[step_count++] = (VibeStep){ 3.0f, 4.0f, BIT_NONE };
+            steps[step_count++] = (VibeStep){ 4.0f, 5.0f, BIT_3|BIT_5 };
+            steps[step_count++] = (VibeStep){ 5.0f, 6.0f, BIT_NONE };
+            steps[step_count++] = (VibeStep){ 6.0f, 8.0f, BIT_5_LOW };
+            steps[step_count++] = (VibeStep){ 8.0f, 9.0f, BIT_3|BIT_5 };
+            steps[step_count++] = (VibeStep){ 9.0f, 10.0f, BIT_NONE };
+            steps[step_count++] = (VibeStep){ 10.0f, 11.0f, BIT_3|BIT_5 };
+            steps[step_count++] = (VibeStep){ 11.0f, 12.0f, BIT_NONE };
             break;
         }
 
         case VIBE_CHORD: {
-            active_tri = 15;
+            fract = range;
+            steps[step_count++] = (VibeStep){ 0.0f, 1.0f, BIT_ALL };
             break;
         }
 
         case VIBE_ROOT: {
-            active_tri = 1;
+            fract = range;
+            steps[step_count++] = (VibeStep){ 0.0f, 1.0f, BIT_1 };
             break;
         }
 
         case VIBE_THIRD: {
-            active_tri = 2;
+            fract = range;
+            steps[step_count++] = (VibeStep){ 0.0f, 1.0f, BIT_3 };
             break;
         }
 
         case VIBE_FIFTH: {
-            active_tri = 4;
+            fract = range;
+            steps[step_count++] = (VibeStep){ 0.0f, 1.0f, BIT_5 };
             break;
         }
     }
 
-    for (unsigned int i = 0; i < frames; i++) {
+    ASSERT(step_count > 0);
+    ASSERT(fract >= 0.0f);
+
+    for (uint32 i = 0; i < frames; i++) {
+        float local_time = fmodf(state->chord_timer, range);
+
+        for (size_t i = 0; i < step_count; i++) {
+            VibeStep *s = &steps[i];
+            float start = s->start * fract;
+            float end = s->end * fract;
+            if (local_time >= start && local_time < end) {
+                active_tri = s->bits;
+                trapezoid_ramp_multiplier = trapezoid_ramp(start, end, local_time);
+                break;
+            }
+        }
+
         float vibrato = sinf(2 * PI * lfo_phase) * lfo_depth;
 
         float tri[4] = {0};
@@ -396,7 +411,10 @@ void chord_synthesizer(void *buffer, unsigned int frames) {
         float filtered_sample = alpha * sample + (1.0f - alpha) * prev_output;
         prev_output = filtered_sample;
 
-        d[i] = (short)(32000.0f * filtered_sample) * state->volume_fade * state->volume_manual;
+        d[i] = (short)(32000.0f * filtered_sample)
+            * state->volume_fade
+            * state->volume_manual
+            * trapezoid_ramp_multiplier;
 
         for (int j = 0; j < FREQ_COUNT; j++) {
             phase[j] += incr[j];
@@ -405,5 +423,10 @@ void chord_synthesizer(void *buffer, unsigned int frames) {
 
         lfo_phase += lfo_rate / sample_rate;
         if (lfo_phase > 1.0f) lfo_phase -= 1.0f;
+
+        state->chord_timer += 1.0 / sample_rate;
+        if (state->chord_timer > state->time_per_chord) {
+            progress();
+        }
     }
 }
