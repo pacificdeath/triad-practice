@@ -10,7 +10,8 @@ void init() {
     state->state = STATE_MAIN;
     state->vibe = VIBE_POLKA;
     state->vibes_per_chord = 4;
-    state->time_per_chord = get_time_per_chord_max() / 2;
+    refresh_time_per_chord_range();
+    state->time_per_chord = get_centralized_time_per_chord();
     state->volume_manual = 0.5f;
     state->scale_root = NOTE_C;
     state->scale_type = SCALE_TYPE_MAJOR;
@@ -85,7 +86,9 @@ void update() {
     {
         Rectangle rec = get_interval_slider_rectangle(state);
         if (IsMouseButtonDown(0) && in_rectangle(rec, state->mouse_position)) {
-            state->time_per_chord = ((state->mouse_position.x - rec.x) / rec.width) * get_time_per_chord_max();
+            float offset = state->min_time_per_chord;
+            float offset_mouse = (state->mouse_position.x - rec.x - offset) / rec.width;
+            state->time_per_chord = offset + (offset_mouse * get_time_per_chord_range());
         }
     }
 
@@ -138,17 +141,30 @@ void update() {
                 if (in_rectangle(state->selectables.rectangle, state->mouse_position)) {
                     int item_idx = (state->mouse_position.y - state->selectables.rectangle.y) / get_selectable_item_height();
                     switch (state->selectables.type) {
-                        default:
+                        default: {
                             *(state->selectables.reference) = item_idx;
-                            break;
-                        case SELECTABLE_TYPE_SCALE_TYPE:
+                        } break;
+                        case SELECTABLE_TYPE_SCALE_TYPE: {
                             state->scale_type = item_idx;
                             refresh_scale();
-                            break;
-                        case SELECTABLE_TYPE_VIBES_PER_CHORD:
+                        } break;
+                        case SELECTABLE_TYPE_VIBES_PER_CHORD: {
+                            float prev_vibes_per_chord = (float)state->vibes_per_chord;
                             state->vibes_per_chord = pow(2, item_idx);
-                            state->time_per_chord = get_time_per_chord_max() / 2;
-                            break;
+                            refresh_time_per_chord_range();
+                            float multiplier = state->vibes_per_chord / prev_vibes_per_chord;
+                            float new_time_per_chord = state->time_per_chord * multiplier;
+                            set_time_per_chord(new_time_per_chord);
+                        } break;
+                        case SELECTABLE_TYPE_VIBE: {
+                            float old_range = get_time_per_chord_range();
+                            float old_location = (state->time_per_chord - state->min_time_per_chord) / old_range;
+                            state->vibe = item_idx;
+                            refresh_time_per_chord_range();
+                            float new_range = get_time_per_chord_range();
+                            float new_time_per_chord = state->min_time_per_chord + old_location * new_range;
+                            set_time_per_chord(new_time_per_chord);
+                        } break;
                     }
                 }
                 state->state = STATE_MAIN;

@@ -1,7 +1,3 @@
-inline static float get_time_per_chord_max() {
-    return TIME_PER_CHORD_MAX_MULTIPLIER * state->vibes_per_chord;
-}
-
 float note_to_freq(uint8 note, int octave) {
     int semitone_index = note + (octave - 4) * 12;
     return 440.0f * powf(2.0f, semitone_index / 12.0f);
@@ -50,6 +46,42 @@ void refresh_scale() {
         case SCALE_TYPE_LOCRIAN: generate_scale(SCALE_LOCRIAN); break;
         case SCALE_TYPE_HARMONIC_MINOR: generate_scale(SCALE_HARMONIC_MINOR); break;
         case SCALE_TYPE_MELODIC_MINOR: generate_scale(SCALE_MELODIC_MINOR); break;
+    }
+}
+
+inline static float get_time_per_chord_range() {
+    return state->max_time_per_chord - state->min_time_per_chord;
+}
+
+inline static void refresh_time_per_chord_range() {
+    switch (state->vibe) {
+        default:
+            state->min_time_per_chord = 0.5f;
+            state->max_time_per_chord = 2.0f;
+            break;
+        case VIBE_SWING:
+            state->min_time_per_chord = 0.6f;
+            state->max_time_per_chord = 1.5f;
+            break;
+        case VIBE_WALTZ:
+            state->min_time_per_chord = 1.0f;
+            state->max_time_per_chord = 4.0f;
+            break;
+    }
+    state->min_time_per_chord *= state->vibes_per_chord;
+    state->max_time_per_chord *= state->vibes_per_chord;
+}
+
+inline static float get_centralized_time_per_chord() {
+    return state->min_time_per_chord + (get_time_per_chord_range() / 2.0f);
+}
+
+inline static void set_time_per_chord(float value) {
+    state->time_per_chord = value;
+    if (state->time_per_chord < state->min_time_per_chord) {
+        state->time_per_chord = state->min_time_per_chord;
+    } else if (state->time_per_chord > state->max_time_per_chord) {
+        state->time_per_chord = state->max_time_per_chord;
     }
 }
 
@@ -236,6 +268,7 @@ typedef struct VibeStep {
 #define FREQ_COUNT 4
 void chord_synthesizer(void *buffer, unsigned int frames) {
     if (!has_flag(FLAG_PLAYING) || !is_sequencer_active()) {
+        state->chord_timer = 0.0f;
         return;
     }
 
@@ -345,25 +378,25 @@ void chord_synthesizer(void *buffer, unsigned int frames) {
         }
 
         case VIBE_CHORD: {
-            fract = range;
+            fract = state->time_per_chord;
             steps[step_count++] = (VibeStep){ 0.0f, 1.0f, BIT_ALL };
             break;
         }
 
         case VIBE_ROOT: {
-            fract = range;
+            fract = state->time_per_chord;
             steps[step_count++] = (VibeStep){ 0.0f, 1.0f, BIT_1 };
             break;
         }
 
         case VIBE_THIRD: {
-            fract = range;
+            fract = state->time_per_chord;
             steps[step_count++] = (VibeStep){ 0.0f, 1.0f, BIT_3 };
             break;
         }
 
         case VIBE_FIFTH: {
-            fract = range;
+            fract = state->time_per_chord;
             steps[step_count++] = (VibeStep){ 0.0f, 1.0f, BIT_5 };
             break;
         }

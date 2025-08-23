@@ -20,7 +20,6 @@
 
 #define RECTANGLE_LINES_COLOR ((Color){0,0,0,255})
 
-#define TIME_PER_CHORD_MAX_MULTIPLIER 2.0f
 #define VIBES_PER_CHORD_MIN 1
 #define VIBES_PER_CHORD_MAX 16
 
@@ -99,6 +98,8 @@ typedef struct State {
     Font font;
     int font_spacing;
     float time_per_chord;
+    float min_time_per_chord;
+    float max_time_per_chord;
     float chord_timer;
     int flags;
     Scale scale;

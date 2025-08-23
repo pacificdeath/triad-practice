@@ -17,7 +17,7 @@ void draw_volume_slider() {
     DrawRectangle(rec.x, rec.y, fill, rec.height, COLOR_FILLED);
     DrawRectangle(rec.x + fill, rec.y, rec.x + rec.width - fill, rec.height, COLOR_UNFILLED);
     draw_rectangle_lines(rec);
-    draw_text_in_rectangle(rec, TextFormat("Volume: %.2f%%", state->volume_manual * 100), TEXT_COLOR_THING);
+    draw_text_in_rectangle(rec, TextFormat("Volume"), TEXT_COLOR_THING);
 }
 
 void draw_vibes_per_chord_button() {
@@ -29,11 +29,13 @@ void draw_vibes_per_chord_button() {
 
 void draw_interval_slider() {
     Rectangle rec = get_interval_slider_rectangle();
-    float fill = rec.width * ((float)state->time_per_chord / get_time_per_chord_max());
+    float time_range = get_time_per_chord_range();
+    float offset = state->min_time_per_chord / time_range;
+    float fill = (((state->time_per_chord / time_range) - offset) * rec.width);
     DrawRectangle(rec.x, rec.y, fill, rec.height, COLOR_FILLED);
     DrawRectangle(rec.x + fill, rec.y, rec.width - fill, rec.height, COLOR_UNFILLED);
     draw_rectangle_lines(rec);
-    draw_text_in_rectangle(rec, TextFormat("Interval: %.1f sec", state->time_per_chord), TEXT_COLOR_THING);
+    draw_text_in_rectangle(rec, TextFormat("Interval"), TEXT_COLOR_THING);
 }
 
 void draw_vibe_button() {
