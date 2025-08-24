@@ -5,6 +5,7 @@ static State *state;
 
 #include "common.c"
 #include "name.c"
+#include "file.c"
 #include "rectangle.c"
 #include "music.c"
 #include "select.c"

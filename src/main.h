@@ -6,19 +6,18 @@
 
 #define WINDOW_NAME "Triad Practice"
 
-#define BG_COLOR                            ((Color){32,32,32,255})
-#define BG_COLOR_THING                      ((Color){0,128,255,255})
+#define TP_BG                               ((Color){0x28, 0x18, 0x10, 0xff})
+#define TP_BG2                              ((Color){0x18, 0x08, 0x00, 0xff})
+#define TP_FG                               ((Color){0xd0, 0xc0, 0x90, 0xff})
+#define TP_RED                              ((Color){0x40, 0x00, 0x00, 0xff})
+#define TP_YELLOW                           ((Color){0x40, 0x40, 0x00, 0xff})
+#define TP_ORANGE                           ((Color){0x40, 0x20, 0x00, 0xff})
+#define TP_GREEN                            ((Color){0x00, 0x40, 0x00, 0xff})
 
-#define TEXT_COLOR_THING                    ((Color){255,255,255,255})
-
-#define COLOR_FILLED                        ((Color){0,128,255,255})
-#define COLOR_UNFILLED                      ((Color){0,64,128,255})
-#define COLOR_FILLED_PROGRESS_BAR           ((Color){0,255,0,255})
-#define COLOR_UNFILLED_PROGRESS_BAR         ((Color){0,128,0,255})
+#define COLOR_FILLED                        TP_GREEN
+#define COLOR_UNFILLED                      TP_BG2
 #define COLOR_CURSOR_CURRENT                ((Color){0,255,0,255})
 #define COLOR_CURSOR_SELECTION              ((Color){64,64,64,255})
-
-#define RECTANGLE_LINES_COLOR ((Color){0,0,0,255})
 
 #define VIBES_PER_CHORD_MIN 1
 #define VIBES_PER_CHORD_MAX 16
@@ -27,9 +26,7 @@
 #define CHAR_BEAMED_8TH_NOTES   0x266B  // ♫
 #define CHAR_SHARP              0x266F  // ♯
 #define CHAR_FLAT               0x266D  // ♭
-#define CHAR_NATURAL            0x266E  // ♮
 #define CHAR_DIMINISHED         0x00B0  // °
-#define CHAR_PLAY               0x25b6  // ▶
 
 #define INTERVAL_MAJOR_THIRD 4
 #define INTERVAL_MINOR_THIRD 3
@@ -51,6 +48,8 @@
 #define SELECTABLE_ITEM_BG_COLOR_ODD ((Color){48,48,48,255})
 #define SELECTABLE_ITEM_BG_COLOR_EVEN ((Color){64,64,64,255})
 #define SELECTABLE_ITEM_BG_COLOR_SELECTED ((Color){0,0,255,255})
+
+#define CMD_MAX_TEXT 64
 
 typedef int8_t int8;
 typedef uint8_t uint8;
@@ -111,21 +110,14 @@ typedef struct State {
     float volume_manual;
     Selectables selectables;
     Vector2 mouse_position;
+    char cmd_buffer[CMD_MAX_TEXT];
+    int cmd_cursor;
 } State;
 
 enum {
     STATE_MAIN,
     STATE_SELECT,
-};
-
-#define SEQUENCER_ROWS (SEQUENCER_AMOUNT * 3)
-enum {
-    VERTICAL_POSITION_OF_AUDIO_CONTROLS = 0,
-    VERTICAL_POSITION_OF_SEQUENCER = 1,
-    VERTICAL_POSITION_OF_PROGRESS_BAR = VERTICAL_POSITION_OF_SEQUENCER + SEQUENCER_ROWS,
-    VERTICAL_POSITION_OF_SCALE_BUTTONS,
-    VERTICAL_POSITION_OF_TIMING_CONTROLS,
-    VERTICAL_POSITION_COUNT,
+    STATE_SAVE_FILE,
 };
 
 enum {
@@ -206,16 +198,33 @@ enum {
 };
 
 enum {
-    SEQUENCER_STATE_1X,
-    SEQUENCER_STATE_2X,
-    SEQUENCER_STATE_3X,
-    SEQUENCER_STATE_4X,
-    SEQUENCER_STATE_OFF,
-};
-
-enum {
     SEQUENCER_ELEMENT_SECTION_CHORD_SYMBOL,
     SEQUENCER_ELEMENT_SECTION_BUTTON,
     SEQUENCER_ELEMENT_SECTION_CURSOR,
+
+    SEQUENCER_STATE_SECTION_RESET = SEQUENCER_ELEMENT_SECTION_BUTTON,
+    SEQUENCER_STATE_SECTION_ENABLE = SEQUENCER_ELEMENT_SECTION_CURSOR,
+};
+
+enum {
+    CONTROLS_SCALE,
+    CONTROLS_ROOT_NOTE,
+    CONTROLS_VIBE,
+    CONTROLS_VIBES_PER_CHORD,
+    CONTROLS_ACCIDENTAL,
+    CONTROLS_VOLUME,
+    CONTROLS_INTERVAL,
+    CONTROLS_COUNT,
+    CONTROLS_COLUMN_COUNT = (CONTROLS_COUNT / 2) + 1,
+};
+
+#define SEQUENCER_ROWS (SEQUENCER_AMOUNT * 3)
+enum {
+    VERTICAL_POSITION_OF_FILE_CONTROLS = 0,
+    VERTICAL_POSITION_OF_SEQUENCER = 1,
+    VERTICAL_POSITION_OF_PLAY_BUTTON = VERTICAL_POSITION_OF_SEQUENCER + SEQUENCER_ROWS,
+    VERTICAL_POSITION_OF_CONTROLS,
+    VERTICAL_POSITION_OF_CMD = VERTICAL_POSITION_OF_CONTROLS + (CONTROLS_COLUMN_COUNT),
+    VERTICAL_POSITION_COUNT,
 };
 

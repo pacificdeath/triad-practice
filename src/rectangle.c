@@ -1,93 +1,61 @@
-Rectangle get_scale_root_button_rectangle() {
-    float width = GetScreenWidth() / 4;
+Rectangle get_file_controls_rectangle() {
     float height = get_thing_height();
     return (Rectangle) {
         .x = 0,
-        .y = height * VERTICAL_POSITION_OF_SCALE_BUTTONS,
-        .width = width,
-        .height = height,
-    };
-}
-
-Rectangle get_scale_accidental_button_rectangle() {
-    Rectangle rec = get_scale_root_button_rectangle();
-    return (Rectangle) {
-        .x = rec.x + rec.width,
-        .y = rec.y,
-        .width = rec.width,
-        .height = rec.height,
-    };
-}
-
-Rectangle get_scale_button_rectangle() {
-    Rectangle root_rec = get_scale_root_button_rectangle();
-    Rectangle accidental_rec = get_scale_accidental_button_rectangle();
-    return (Rectangle) {
-        .x = accidental_rec.x + accidental_rec.width,
-        .y = root_rec.y,
-        .width = GetScreenWidth() - root_rec.width - accidental_rec.width,
-        .height = root_rec.height,
-    };
-}
-
-Rectangle get_volume_slider_rectangle() {
-    float height = get_thing_height();
-    return (Rectangle) {
-        .x = 0,
-        .y = height * VERTICAL_POSITION_OF_AUDIO_CONTROLS,
+        .y = height * VERTICAL_POSITION_OF_FILE_CONTROLS,
         .width = GetScreenWidth(),
         .height = height,
     };
 }
 
-Rectangle get_vibe_button_rectangle() {
-    float width = GetScreenWidth() / 4;
-    float height = get_thing_height();
-    return (Rectangle) {
-        .x = 0,
-        .y = height * VERTICAL_POSITION_OF_TIMING_CONTROLS,
-        .width = width,
-        .height = height,
-    };
-}
-
-Rectangle get_vibes_per_chord_rectangle() {
-    Rectangle rec = get_vibe_button_rectangle();
-    return (Rectangle) {
-        .x = rec.x + rec.width,
-        .y = rec.y,
-        .width = rec.width,
-        .height = rec.height,
-    };
-}
-
-Rectangle get_interval_slider_rectangle() {
-    Rectangle vibe_button_rec = get_vibe_button_rectangle();
-    Rectangle vibes_per_chord_rec = get_vibes_per_chord_rectangle();
-    return (Rectangle) {
-        .x = vibes_per_chord_rec.x + vibes_per_chord_rec.width,
-        .y = vibe_button_rec.y,
-        .width = GetScreenWidth() - vibe_button_rec.width - vibes_per_chord_rec.width,
-        .height = vibe_button_rec.height,
-    };
-}
-
-Rectangle get_play_pause_button_rectangle() {
-    float width = GetScreenWidth() / 4;
-    float height = get_thing_height();
-    return (Rectangle) {
-        .x = 0,
-        .y = height * VERTICAL_POSITION_OF_PROGRESS_BAR,
-        .width = width,
-        .height = height,
-    };
-}
-
-Rectangle get_progress_bar_rectangle() {
-    Rectangle rec = get_play_pause_button_rectangle();
-    rec.x += rec.width;
-    rec.width = GetScreenWidth() - rec.x;
+Rectangle get_load_file_rectangle() {
+    Rectangle rec = get_file_controls_rectangle();
+    rec.width /= 2;
     return rec;
+}
+
+Rectangle get_save_file_rectangle() {
+    Rectangle rec = get_file_controls_rectangle();
+    rec.x = rec.x + (rec.width / 2);
+    rec.width /= 2;
+    return rec;
+}
+
+Rectangle get_control_rectangle(int control) {
+    float width = GetScreenWidth() / 2;
+    float height = get_thing_height();
+    int x_idx = control / CONTROLS_COLUMN_COUNT;
+    int y_idx = control % CONTROLS_COLUMN_COUNT;
+    int split_point = CONTROLS_COUNT / 2;
+    return (Rectangle) {
+        .x = width * x_idx,
+        .y = (height * VERTICAL_POSITION_OF_CONTROLS) + (height * y_idx),
+        .width = width,
+        .height = height,
+    };
+}
+
+Rectangle get_control_label_rectangle(int control) {
+    Rectangle rec = get_control_rectangle(control);
+    rec.width /= 2;
+    return rec;
+}
+
+Rectangle get_control_value_rectangle(int control) {
+    Rectangle rec = get_control_rectangle(control);
+    rec.x = rec.x + (rec.width / 2);
+    rec.width /= 2;
+    return rec;
+}
+
+Rectangle get_play_button_rectangle() {
+    float height = get_thing_height();
+    return (Rectangle) {
+        .x = 0,
+        .y = height * VERTICAL_POSITION_OF_PLAY_BUTTON,
+        .width = GetScreenWidth(),
+        .height = height,
+    };
 }
 
 inline static float get_sequencer_element_width() {
@@ -129,7 +97,7 @@ Rectangle get_sequencer_element_rectangle(int idx) {
     return element_rec;
 }
 
-Rectangle get_sequencer_element_section_rectangle(Rectangle element_rec, int section) {
+Rectangle get_sequencer_section_rectangle(Rectangle element_rec, int section) {
     element_rec.height /= 3;
     switch (section) {
         case SEQUENCER_ELEMENT_SECTION_CHORD_SYMBOL:
@@ -143,5 +111,15 @@ Rectangle get_sequencer_element_section_rectangle(Rectangle element_rec, int sec
     }
 
     return element_rec;
+}
+
+Rectangle get_cmd_rectangle() {
+    float height = get_thing_height();
+    return (Rectangle) {
+        .x = 0,
+        .y = height * VERTICAL_POSITION_OF_CMD,
+        .width = GetScreenWidth(),
+        .height = height,
+    };
 }
 

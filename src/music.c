@@ -53,19 +53,18 @@ inline static float get_time_per_chord_range() {
     return state->max_time_per_chord - state->min_time_per_chord;
 }
 
+#define MIN_TIME_PER_CHORD_DEFAULT 0.5f
+#define MAX_TIME_PER_CHORD_DEFAULT 2.0f
+
 inline static void refresh_time_per_chord_range() {
     switch (state->vibe) {
         default:
-            state->min_time_per_chord = 0.5f;
-            state->max_time_per_chord = 2.0f;
-            break;
-        case VIBE_SWING:
-            state->min_time_per_chord = 0.6f;
-            state->max_time_per_chord = 1.5f;
+            state->min_time_per_chord = MIN_TIME_PER_CHORD_DEFAULT;
+            state->max_time_per_chord = MAX_TIME_PER_CHORD_DEFAULT;
             break;
         case VIBE_WALTZ:
-            state->min_time_per_chord = 1.0f;
-            state->max_time_per_chord = 4.0f;
+            state->min_time_per_chord = (MIN_TIME_PER_CHORD_DEFAULT * 2);
+            state->max_time_per_chord = (MAX_TIME_PER_CHORD_DEFAULT * 2);
             break;
     }
     state->min_time_per_chord *= state->vibes_per_chord;
@@ -217,6 +216,15 @@ Chord get_sequencer_chord(int degree) {
     }
 
     return chord;
+}
+
+void sequencer_reset_section(int idx) {
+    ASSERT(idx < SEQUENCER_ROWS);
+    int start = idx * SEQUENCER_ROW;
+    int end = start + SEQUENCER_ROW;
+    for (int i = start; i < end; i++) {
+        state->sequencer[i] = SCALE_DEGREE_NONE;
+    }
 }
 
 void progress() {
